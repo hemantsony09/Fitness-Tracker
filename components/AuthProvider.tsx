@@ -16,6 +16,7 @@ import { authStorage, getInitialAuthState, type AuthState, type AuthUser } from 
 
 interface AuthContextType extends AuthState {
   googleLogin: () => Promise<void>;
+  guestLogin: () => void;
   logout: () => Promise<void>;
   isLoading: boolean;
 }
@@ -45,14 +46,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  // Listen to Firebase auth state changes
+  // Check for guest mode and initialize auth state
   useEffect(() => {
-    if (!auth) {
+    const stored = authStorage.get();
+    if (stored?.user?.id === 'guest') {
+      setAuthState(stored);
       setIsLoading(false);
       return;
     }
 
+    // If not guest and no auth available, set loading to false after a short delay
+    if (!auth) {
+      // Give Firebase a moment to initialize, then set loading to false
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Listen to Firebase auth state changes (only if not guest)
+  useEffect(() => {
+    const stored = authStorage.get();
+    if (stored?.user?.id === 'guest') {
+      return; // Skip Firebase auth for guests
+    }
+
+    if (!auth) {
+      // If auth is not available, ensure loading is set to false
+      setIsLoading(false);
+      return;
+    }
+
+    // Set a timeout to ensure loading doesn't stay true forever
+    const loadingTimeout = setTimeout(() => {
+      setIsLoading(false);
+    }, 3000); // Max 3 seconds wait
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      clearTimeout(loadingTimeout); // Clear timeout once we get auth state
+      
       if (firebaseUser) {
         const user: AuthUser = {
           id: firebaseUser.uid,
@@ -79,7 +112,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(loadingTimeout);
+      unsubscribe();
+    };
   }, []);
 
   // Protect routes
@@ -116,7 +152,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const guestLogin = () => {
+    const guestUser: AuthUser = {
+      id: 'guest',
+      email: 'guest@fitness-tracker.local',
+      name: 'Guest User',
+    };
+    const newState: AuthState = {
+      user: guestUser,
+      token: 'guest-token',
+      isAuthenticated: true,
+    };
+    setAuthState(newState);
+    authStorage.set(newState);
+    router.push('/');
+  };
+
   const logout = async () => {
+    // Check if guest mode
+    if (authState.user?.id === 'guest') {
+      const newState: AuthState = {
+        user: null,
+        token: null,
+        isAuthenticated: false,
+      };
+      setAuthState(newState);
+      authStorage.clear();
+      router.push('/auth');
+      return;
+    }
+
+    // Firebase logout
     if (!auth) return;
     try {
       await firebaseSignOut(auth);
@@ -132,6 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         ...authState,
         googleLogin,
+        guestLogin,
         logout,
         isLoading,
       }}

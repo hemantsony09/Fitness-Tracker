@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react';
 import { useExercises } from '@/hooks/useExercises';
 import { useWorkoutLogByDate, useCreateWorkoutLog, useUpdateWorkoutLog } from '@/hooks/useWorkoutLogs';
 import { useWeeklyPlanner } from '@/hooks/useWeeklyPlanner';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { calculateTotalCalories, calculateCaloriesForExercise } from '@/lib/calorieCalculator';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
 import BottomSheet from '@/components/BottomSheet';
-import { Plus, Check, Trash2, Minus, CheckCircle2, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Check, Trash2, Minus, CheckCircle2, Calendar, ChevronDown, ChevronUp, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ExerciseEntry, Set as SetType, Exercise } from '@/lib/api';
 
@@ -36,6 +38,7 @@ export default function LoggerPage() {
   const { data: exercises, isLoading: exercisesLoading } = useExercises();
   const { data: todayLog, isLoading: logLoading } = useWorkoutLogByDate(selectedDate);
   const { data: weeklyPlan } = useWeeklyPlanner();
+  const { data: profile } = useUserProfile();
   const createLog = useCreateWorkoutLog();
   const updateLog = useUpdateWorkoutLog();
 
@@ -269,6 +272,15 @@ export default function LoggerPage() {
     return total + (ex.sets || []).length;
   }, 0);
 
+  // Only calculate calories if there are exercises with completed sets
+  const hasCompletedSets = workoutExercises.some(ex => 
+    ex.sets?.some(set => set.completed)
+  );
+  
+  const totalCalories = profile && workoutExercises.length > 0 && hasCompletedSets
+    ? calculateTotalCalories(workoutExercises, profile.weight)
+    : 0;
+
   return (
     <div className="min-h-screen bg-black pb-24">
       <div className="sticky top-0 bg-black border-b border-gray-800 z-10 px-4 py-4">
@@ -285,15 +297,25 @@ export default function LoggerPage() {
             ? `Editing: ${new Date(selectedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
             : 'Tap to adjust • Single click actions'}
         </p>
-        {totalSetsCount > 0 && (
-          <div className="mt-2 flex items-center gap-2 text-sm">
-            <CheckCircle2 size={16} className="text-white" />
-            <span className="text-gray-300">
-              <span className="font-semibold text-white">{completedSetsCount}</span> of{' '}
-              <span className="font-semibold text-white">{totalSetsCount}</span> sets completed
-            </span>
-          </div>
-        )}
+        <div className="mt-2 flex items-center gap-4 text-sm">
+          {totalSetsCount > 0 && (
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-white" />
+              <span className="text-gray-300">
+                <span className="font-semibold text-white">{completedSetsCount}</span> of{' '}
+                <span className="font-semibold text-white">{totalSetsCount}</span> sets
+              </span>
+            </div>
+          )}
+          {totalCalories > 0 && (
+            <div className="flex items-center gap-2">
+              <Flame size={16} className="text-orange-500" />
+              <span className="text-gray-300">
+                <span className="font-semibold text-orange-500">{totalCalories}</span> cal
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="p-4 space-y-4">
@@ -319,6 +341,10 @@ export default function LoggerPage() {
           {workoutExercises.map((exercise) => {
             const completedSets = (exercise.sets || []).filter((s) => s.completed).length;
             const totalSets = (exercise.sets || []).length;
+            // Only calculate calories if there are completed sets
+            const exerciseCalories = profile && completedSets > 0
+              ? calculateCaloriesForExercise(exercise, profile.weight)
+              : 0;
             
             return (
               <motion.div
@@ -330,10 +356,24 @@ export default function LoggerPage() {
                 <Card>
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h3 className="font-bold text-xl text-white">{exercise.exerciseName}</h3>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-bold text-xl text-white">{exercise.exerciseName}</h3>
+                        {exerciseCalories > 0 && (
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-500/20 border border-orange-500/30 rounded-lg">
+                            <Flame size={16} className="text-orange-500" />
+                            <span className="text-base font-bold text-orange-500">{exerciseCalories}</span>
+                            <span className="text-xs text-orange-400">cal</span>
+                          </div>
+                        )}
+                      </div>
                       {totalSets > 0 && (
-                        <p className="text-sm text-gray-400 mt-1">
+                        <p className="text-sm text-gray-400">
                           {completedSets}/{totalSets} sets completed
+                          {exerciseCalories > 0 && (
+                            <span className="ml-2 text-orange-400">
+                              • {exerciseCalories} calories burned
+                            </span>
+                          )}
                         </p>
                       )}
                     </div>

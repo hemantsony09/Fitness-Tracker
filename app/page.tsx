@@ -2,10 +2,12 @@
 
 import { useWorkoutLogByDate } from '@/hooks/useWorkoutLogs';
 import { useWeeklyPlanner } from '@/hooks/useWeeklyPlanner';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { calculateTotalCalories, calculateCaloriesForExercise } from '@/lib/calorieCalculator';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
 import { useRouter } from 'next/navigation';
-import { Plus, Calendar } from 'lucide-react';
+import { Plus, Calendar, Flame } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function Home() {
@@ -13,10 +15,21 @@ export default function Home() {
   const today = new Date().toISOString().split('T')[0];
   const { data: todayLog } = useWorkoutLogByDate(today);
   const { data: weeklyPlan } = useWeeklyPlanner();
+  const { data: profile } = useUserProfile();
   
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const todayName = dayNames[new Date().getDay()];
   const todayPlan = weeklyPlan?.[todayName]?.exercises || [];
+
+  // Only calculate calories if there's a log with exercises and a profile
+  const totalCalories = todayLog && profile && todayLog.exercises && todayLog.exercises.length > 0
+    ? calculateTotalCalories(todayLog.exercises, profile.weight)
+    : 0;
+  
+  // Only show calories if there are actually completed sets
+  const hasCompletedSets = todayLog?.exercises?.some(ex => 
+    ex.sets?.some(set => set.completed)
+  ) || false;
 
   return (
     <div className="min-h-screen bg-black pb-24">
@@ -25,6 +38,14 @@ export default function Home() {
         <p className="text-sm text-gray-400 mt-1">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
+        {totalCalories > 0 && hasCompletedSets && (
+          <div className="mt-2 flex items-center gap-2 text-sm">
+            <Flame className="text-orange-500" size={16} />
+            <span className="text-gray-300">
+              <span className="font-semibold text-orange-500">{totalCalories}</span> calories burned
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="p-4 space-y-4">
@@ -34,33 +55,49 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-4"
           >
-            {todayLog.exercises.map((exercise) => (
-              <Card key={exercise.id}>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-lg mb-2 text-white">{exercise.exerciseName}</h3>
-                    <div className="space-y-1">
-                      {(exercise.sets || []).map((set, idx) => (
-                        <div
-                          key={set.id}
-                          className={`flex items-center gap-3 text-sm ${
-                            set.completed ? 'text-gray-400 line-through' : 'text-gray-100'
-                          }`}
-                        >
-                          <span className="font-medium">Set {idx + 1}:</span>
-                          <span>
-                            {set.reps} reps × {set.weight} kg
-                          </span>
-                          {set.completed && (
-                            <span className="ml-auto text-green-600">✓</span>
-                          )}
-                        </div>
-                      ))}
+            {todayLog.exercises.map((exercise) => {
+              const completedSets = (exercise.sets || []).filter(s => s.completed).length;
+              const exerciseCalories = profile && completedSets > 0
+                ? calculateCaloriesForExercise(exercise, profile.weight)
+                : 0;
+              
+              return (
+                <Card key={exercise.id}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-bold text-lg text-white">{exercise.exerciseName}</h3>
+                        {exerciseCalories > 0 && (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-500/20 border border-orange-500/30 rounded-lg">
+                            <Flame size={14} className="text-orange-500" />
+                            <span className="text-sm font-bold text-orange-500">{exerciseCalories}</span>
+                            <span className="text-xs text-orange-400">cal</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        {(exercise.sets || []).map((set, idx) => (
+                          <div
+                            key={set.id}
+                            className={`flex items-center gap-3 text-sm ${
+                              set.completed ? 'text-gray-400 line-through' : 'text-gray-100'
+                            }`}
+                          >
+                            <span className="font-medium">Set {idx + 1}:</span>
+                            <span>
+                              {set.reps} reps × {set.weight} kg
+                            </span>
+                            {set.completed && (
+                              <span className="ml-auto text-green-600">✓</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
             <Button
               fullWidth
               onClick={() => router.push('/logger')}

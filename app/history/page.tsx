@@ -3,16 +3,19 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkoutLogs, useDeleteWorkoutLog } from '@/hooks/useWorkoutLogs';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { calculateTotalCalories, calculateCaloriesForExercise } from '@/lib/calorieCalculator';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
 import BottomSheet from '@/components/BottomSheet';
-import { Calendar, Clock, Trash2, Edit2, Search, X, TrendingUp } from 'lucide-react';
+import { Calendar, Clock, Trash2, Edit2, Search, X, TrendingUp, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { WorkoutLog } from '@/lib/api';
 
 export default function HistoryPage() {
   const router = useRouter();
   const { data: workoutLogs, isLoading } = useWorkoutLogs();
+  const { data: profile } = useUserProfile();
   const deleteLog = useDeleteWorkoutLog();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLog, setSelectedLog] = useState<WorkoutLog | null>(null);
@@ -143,6 +146,13 @@ export default function HistoryPage() {
               const totalSetsInLog = (log.exercises || []).reduce((sum, ex) => 
                 sum + (ex.sets?.length || 0), 0
               );
+              // Only calculate calories if there are completed sets
+              const hasCompletedSets = (log.exercises || []).some(ex => 
+                ex.sets?.some(set => set.completed)
+              );
+              const logCalories = profile && log.exercises && hasCompletedSets
+                ? calculateTotalCalories(log.exercises, profile.weight)
+                : 0;
 
               return (
                 <motion.div
@@ -174,6 +184,12 @@ export default function HistoryPage() {
                             <span>{completedSetsInLog}/{totalSetsInLog} sets</span>
                           </div>
                           <span>{(log.exercises || []).length} exercises</span>
+                          {logCalories > 0 && (
+                            <div className="flex items-center gap-1">
+                              <Flame size={14} className="text-orange-500" />
+                              <span className="text-orange-500 font-semibold">{logCalories} cal</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -199,11 +215,22 @@ export default function HistoryPage() {
                         const exerciseSets = exercise.sets || [];
                         const exerciseCompletedSets = exerciseSets.filter(s => s.completed).length;
                         const exerciseTotalSets = exerciseSets.length;
+                        const exerciseCalories = profile && exerciseCompletedSets > 0
+                          ? calculateCaloriesForExercise(exercise, profile.weight)
+                          : 0;
                         
                         return (
                           <div key={exercise.id} className="border-l-4 border-gray-700 pl-3">
                             <div className="flex items-center justify-between mb-1">
-                              <h4 className="font-semibold text-white">{exercise.exerciseName}</h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold text-white">{exercise.exerciseName}</h4>
+                                {exerciseCalories > 0 && (
+                                  <div className="flex items-center gap-1 px-2 py-0.5 bg-orange-500/20 border border-orange-500/30 rounded">
+                                    <Flame size={12} className="text-orange-500" />
+                                    <span className="text-xs font-bold text-orange-500">{exerciseCalories}</span>
+                                  </div>
+                                )}
+                              </div>
                               <span className="text-xs text-gray-400">
                                 {exerciseCompletedSets}/{exerciseTotalSets} sets
                               </span>

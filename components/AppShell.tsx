@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { Home, PlusCircle, Calendar, History, List, LogOut } from 'lucide-react';
+import { Home, PlusCircle, Calendar, History, List, LogOut, User } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 
 interface AppShellProps {
@@ -15,7 +15,7 @@ const navItems = [
   { path: '/logger', label: 'Logger', icon: PlusCircle },
   { path: '/planner', label: 'Planner', icon: Calendar },
   { path: '/history', label: 'History', icon: History },
-  { path: '/exercises', label: 'Exercises', icon: List },
+  { path: '/profile', label: 'Profile', icon: User },
 ];
 
 export default function AppShell({ children }: AppShellProps) {

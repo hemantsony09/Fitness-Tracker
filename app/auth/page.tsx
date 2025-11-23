@@ -9,7 +9,7 @@ import { useAuth } from '@/components/AuthProvider';
 
 export default function AuthPage() {
   const router = useRouter();
-  const { googleLogin, isLoading } = useAuth();
+  const { googleLogin, guestLogin, isLoading } = useAuth();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -48,7 +48,7 @@ export default function AuthPage() {
           </div>
 
           {/* Google Sign In */}
-          <div className="mb-6">
+          <div className="mb-4">
             <Button
               fullWidth
               size="lg"
@@ -76,6 +76,30 @@ export default function AuthPage() {
               </svg>
               Continue with Google
             </Button>
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center mb-4">
+            <div className="flex-1 border-t border-gray-700"></div>
+            <span className="px-4 text-gray-400 text-sm">or</span>
+            <div className="flex-1 border-t border-gray-700"></div>
+          </div>
+
+          {/* Guest Login */}
+          <div className="mb-6">
+            <Button
+              fullWidth
+              size="lg"
+              onClick={guestLogin}
+              disabled={isLoading}
+              variant="outline"
+              className="border-2 border-gray-600 hover:border-gray-500"
+            >
+              Continue as Guest
+            </Button>
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              Data will be stored locally on your device
+            </p>
           </div>
 
           {error && (
