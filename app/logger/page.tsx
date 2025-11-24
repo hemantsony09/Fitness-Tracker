@@ -146,7 +146,7 @@ export default function LoggerPage() {
       const exerciseSets = exercise.sets || [];
       const lastSet = exerciseSets[exerciseSets.length - 1];
     const defaultReps = lastSet?.reps || 10;
-    const defaultWeight = lastSet ? lastSet.weight + 2.5 : 60; // Increment weight by 2.5kg
+    const defaultWeight = lastSet ? lastSet.weight + 2.5 : 20; // Start at 20kg then add 2.5kg
 
     const newSet: SetType = {
       id: Date.now().toString(),
@@ -451,7 +451,7 @@ interface SetRowProps {
 function SetRow({ set, index, onToggleComplete, onUpdateReps, onUpdateWeight, onDelete }: SetRowProps) {
   return (
     <div
-      className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+      className={`flex flex-wrap md:flex-nowrap items-center gap-3 p-3 rounded-xl border-2 transition-all ${
         set.completed
           ? 'bg-gray-800 border-gray-700 shadow-sm'
           : 'bg-black border-gray-800'
@@ -470,14 +470,14 @@ function SetRow({ set, index, onToggleComplete, onUpdateReps, onUpdateWeight, on
       </button>
 
       {/* Set Number */}
-      <div className="w-12 text-center">
+      <div className="w-12 text-center flex-shrink-0">
         <span className={`text-sm font-semibold ${set.completed ? 'text-white' : 'text-gray-400'}`}>
           #{index + 1}
         </span>
       </div>
 
       {/* Reps Control */}
-      <div className="flex items-center gap-1 flex-1">
+      <div className="flex items-center gap-1 flex-1 min-w-[140px]">
         <span className="text-xs text-gray-400 w-10">Reps</span>
         <button
           onClick={() => onUpdateReps(Math.max(1, set.reps - 1))}
@@ -499,7 +499,7 @@ function SetRow({ set, index, onToggleComplete, onUpdateReps, onUpdateWeight, on
       </div>
 
       {/* Weight Control */}
-      <div className="flex items-center gap-1 flex-1">
+      <div className="flex items-center gap-1 flex-1 min-w-[160px]">
         <span className="text-xs text-gray-400 w-12">Kg</span>
         <button
           onClick={() => onUpdateWeight(Math.max(0, set.weight - 2.5))}
